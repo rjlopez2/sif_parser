@@ -4,6 +4,8 @@ from collections import OrderedDict
 from ._sif_open import _open
 from .utils import extract_calibration, ordered_dat_files
 import glob, os
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 
 def np_open(sif_file, ignore_corrupt=False, lazy=None):
@@ -151,7 +153,7 @@ def xr_open(sif_file, ignore_corrupt=False, lazy=None):
     return xr.DataArray(data, dims=['Time', 'height', 'width'],
                         coords=coords, attrs=new_info)
 
-def np_spool_open(spool_dir, ignore_missing=False, lazy=None):
+def np_spool_open(spool_dir, ignore_missing=False, lazy=None, multithreading = False, max_workers = 16):
     """
     Read the binary files and meta data from the directory generated via the spooling acquisition. 
     Returns a np.array and a dictionary of the meta data. 
@@ -246,12 +248,33 @@ def np_spool_open(spool_dir, ignore_missing=False, lazy=None):
         # create np array with the given info     
         data = np.empty( [t, y_, x_], datatype ) 
 
-        for frame in range(t):
-            data[frame, ...] = np.fromfile(dat_files_list[frame], 
-            offset=0, 
-            dtype=datatype,
-            count= y_ * x_).reshape(y_, x_)
-        # account for the extra padding to trim if present
+
+        # Function to read a single file
+        def read_dat_file(file_path, y_, x_, datatype):
+            time.sleep(0.15)
+            return np.fromfile(file_path, offset=0, dtype=datatype, count=y_ * x_).reshape(y_, x_)
+        
+        # Main function to read all .dat files concurrently
+            
+        if multithreading:
+            # Use ThreadPoolExecutor to read files concurrently
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(read_dat_file, dat_files_list[i], y_, x_, datatype): i for i in range(t)}
+                
+                for future in futures:
+                    i = futures[future]
+                    data[i] = future.result()
+        
+    
+        else:
+
+            for frame in range(t):
+                data[frame, ...] = read_dat_file(dat_files_list[frame], y_, x_, datatype)
+                # data[frame, ...] = np.fromfile(dat_files_list[frame], 
+                # offset=0, 
+                # dtype=datatype,
+                # count= y_ * x_).reshape(y_, x_)
+            # account for the extra padding to trim if present
         if x != x_:
             end_padding =  x_ - x
             data = data[:, :, :-end_padding]
