@@ -251,7 +251,7 @@ def np_spool_open(spool_dir, ignore_missing=False, lazy=None, multithreading = F
 
         # Function to read a single file
         def read_dat_file(file_path, y_, x_, datatype):
-            time.sleep(0.15)
+            #time.sleep(0.15)
             return np.fromfile(file_path, offset=0, dtype=datatype, count=y_ * x_).reshape(y_, x_)
         
         # Main function to read all .dat files concurrently
