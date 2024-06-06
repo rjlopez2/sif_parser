@@ -1,6 +1,7 @@
 import typing
 import numpy as np
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from . import sif_open as sif
 
@@ -73,3 +74,27 @@ def ordered_dat_files(input_string):
 
     # Print the result
     return result
+
+
+
+def read_dat_image(filepath, y_, x_, datatype):
+    data = np.fromfile(filepath, offset=0, dtype=datatype, count=y_ * x_).reshape(y_, x_)
+    return data
+
+
+
+def read_dat_images_in_multithread(x_, y_, dat_files_list, datatype, pre_alocated_array, max_workers=8):
+    t = len(dat_files_list)
+    #pre_alocated_array = np.empty([t, y_, x_], datatype)
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_frame = {executor.submit(read_dat_image, dat_files_list[frame], y_, x_, datatype): frame for frame in range(t)}
+        
+        for future in as_completed(future_to_frame):
+            frame = future_to_frame[future]
+            try:
+                pre_alocated_array[frame, ...] = future.result()
+            except Exception as exc:
+                print(f'Frame {frame} generated an exception: {exc}')
+    
+    return pre_alocated_array

@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 from collections import OrderedDict
 from ._sif_open import _open
-from .utils import extract_calibration, ordered_dat_files
+from .utils import extract_calibration, ordered_dat_files, read_dat_images_in_multithread, read_dat_image
 import glob, os
 from concurrent.futures import ThreadPoolExecutor
 import time
@@ -250,26 +250,27 @@ def np_spool_open(spool_dir, ignore_missing=False, lazy=None, multithreading = F
 
 
         # Function to read a single file
-        def read_dat_file(file_path, y_, x_, datatype):
-            #time.sleep(0.15)
-            return np.fromfile(file_path, offset=0, dtype=datatype, count=y_ * x_).reshape(y_, x_)
+        #def read_dat_file(file_path, y_, x_, datatype):
+        #    #time.sleep(0.15)
+        #    return np.fromfile(file_path, offset=0, dtype=datatype, count=y_ * x_).reshape(y_, x_)
         
         # Main function to read all .dat files concurrently
             
         if multithreading:
             # Use ThreadPoolExecutor to read files concurrently
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(read_dat_file, dat_files_list[i], y_, x_, datatype): i for i in range(t)}
-                
-                for future in futures:
-                    i = futures[future]
-                    data[i] = future.result()
+            #with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            #    futures = {executor.submit(read_dat_file, dat_files_list[i], y_, x_, datatype): i for i in range(t)}
+            #    
+            #   for future in futures:
+            #        i = futures[future]
+            #        data[i] = future.result()
+            data = read_dat_images_in_multithread(x_, y_, dat_files_list, datatype, data, max_workers=max_workers)
         
     
         else:
 
             for frame in range(t):
-                data[frame, ...] = read_dat_file(dat_files_list[frame], y_, x_, datatype)
+                data[frame, ...] = read_dat_image(dat_files_list[frame], y_, x_, datatype)
                 # data[frame, ...] = np.fromfile(dat_files_list[frame], 
                 # offset=0, 
                 # dtype=datatype,
