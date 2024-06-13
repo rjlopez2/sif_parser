@@ -82,6 +82,10 @@ def read_dat_image(filepath, y_, x_, datatype):
     return data
 
 
+def image_generator(dat_files_list):
+    for filepath in dat_files_list:
+        yield filepath
+
 
 def read_dat_images_in_multithread(x_, y_, dat_files_list, datatype, pre_alocated_array, max_workers=8):
     t = len(dat_files_list)
@@ -89,6 +93,22 @@ def read_dat_images_in_multithread(x_, y_, dat_files_list, datatype, pre_alocate
     
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_frame = {executor.submit(read_dat_image, dat_files_list[frame], y_, x_, datatype): frame for frame in range(t)}
+        
+        for future in as_completed(future_to_frame):
+            frame = future_to_frame[future]
+            try:
+                pre_alocated_array[frame, ...] = future.result()
+            except Exception as exc:
+                print(f'Frame {frame} generated an exception: {exc}')
+    
+    return pre_alocated_array
+
+
+def read_dat_images_in_multithread_with_generator(x_, y_, dat_files_list, datatype, pre_alocated_array, max_workers=8):
+    image_paths = list(image_generator(dat_files_list))
+    t = len(image_paths)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_frame = {executor.submit(read_dat_image, image_paths[frame], y_, x_, datatype): frame for frame in range(t)}
         
         for future in as_completed(future_to_frame):
             frame = future_to_frame[future]
